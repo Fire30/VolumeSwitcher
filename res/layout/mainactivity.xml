@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" >
+    
+
+    
+        <TextView  
+        android:id="@+id/help_page_intro"
+        android:layout_width="match_parent" 
+        android:layout_height="0dp"
+        android:gravity="center" 
+        android:text="Settings"
+        android:padding="0dip"
+        android:textSize="20dp"
+        android:layout_weight=".1"/>
+        <CheckBox
+        android:id="@+id/doubletap"
+        android:layout_width="match_parent"
+        android:layout_height="45dp"
+        android:checked="false"
+        android:text="Pause and play music on double tap" />
+        <TextView  
+        android:id="@+id/help_page_intro"
+        android:layout_width="match_parent" 
+        android:layout_height="0dp" 
+        android:text="Note:Since it is difficult to determine whether a music app is running. This may cause music to start playing on a double tap even though it wasn't on previously."
+        android:padding="2dip"
+        android:layout_weight="1"
+           />
+        <TextView  
+        android:id="@+id/help_page_intro"
+        android:layout_width="match_parent" 
+        android:layout_height="0dp" 
+        android:text="Note:You need to restart your phone for all changes to take effect."
+        android:padding="4dip"
+        android:layout_weight="1"
+           />
+</LinearLayout>
