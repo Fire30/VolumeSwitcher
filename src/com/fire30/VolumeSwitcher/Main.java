@@ -7,8 +7,12 @@
 package com.fire30.VolumeSwitcher;
 import java.lang.reflect.Method;
 
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.media.AudioManager;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 
@@ -53,12 +57,17 @@ public class Main {
 				final Method isRinging = telephonyService.getClass().getDeclaredMethod("isRinging");
 				final Method isOffhook = telephonyService.getClass().getDeclaredMethod("isOffhook");
 				Handler mHandler = (Handler)resources.getClass().getDeclaredField("mHandler").get(resources);
-				final Method sendMediaButtonEvent = resources.getClass()
-						.getDeclaredMethod("sendMediaButtonEvent",Integer.TYPE);
 				final Method handleVolumeKey = resources.getClass()
 						.getDeclaredMethod("handleVolumeKey",Integer.TYPE,Integer.TYPE);
 				final int ACTION_PASS_TO_USER = resources.getClass().getInterfaces()[0]
 						.getDeclaredField("ACTION_PASS_TO_USER").getInt(null);
+				final Context mContext = (Context)resources.getClass().getDeclaredField("mContext").get(resources);
+				final Context settingsContext = mContext.createPackageContext("com.fire30.VolumeSwitcher", 
+																			  Context.MODE_WORLD_WRITEABLE);
+				SharedPreferences settings = settingsContext.getSharedPreferences("com.fire30.VolumeSwitcher", 
+																				  Context.MODE_WORLD_READABLE);
+				System.out.println(settings.getAll().toString());
+				final boolean doubletap = settings.getBoolean("doubletap", false);
 				//Get all variables and methods that we are using via reflection, pretty ugly
 				//Since most are from the android internals we can't ever cast them.
 				Runnable mVolumeUpLongPress = new Runnable() {
@@ -66,29 +75,38 @@ public class Main {
 					public void run() {
 						try 
 						{
+							Integer theKeyCode = null;
+							boolean shouldDoAction = true;
 							if(volumePresesSinceFirst > 1)
 							{
-								Object[] volumeArgs = {AudioManager.STREAM_MUSIC,KeyEvent.KEYCODE_VOLUME_DOWN};
-								handleVolumeKey.invoke(resources,volumeArgs);
-								int theKeyCode = isPaused ? KeyEvent.KEYCODE_MEDIA_PLAY :
+								if(doubletap)
+								{
+									theKeyCode = isPaused ? KeyEvent.KEYCODE_MEDIA_PLAY :
 															KeyEvent.KEYCODE_MEDIA_PAUSE;
 								
-								isPaused = !isPaused;
-								resources.getClass().getDeclaredField("mIsLongPress").setBoolean(resources, true);
-								Object[] mediaArgs = {theKeyCode};
-								sendMediaButtonEvent.invoke(resources,mediaArgs);
+									isPaused = !isPaused;
+								}
+								else
+								{
+									shouldDoAction = false;
+								}
 							}
 							else if(stillPressing && volumePresesSinceFirst <= 1)
 							{
-								//need to be pressing and the counter ensures that it is a hold.
+								theKeyCode = KeyEvent.KEYCODE_MEDIA_NEXT;
+							}
+							if(!(theKeyCode == null) && shouldDoAction)
+							{
 								Object[] volumeArgs = {AudioManager.STREAM_MUSIC,KeyEvent.KEYCODE_VOLUME_DOWN};
 								handleVolumeKey.invoke(resources,volumeArgs);
-								//Audio still changes, so I make it go down first so it will end back up where it was.
-								//Not a fan of this hack.
-								resources.getClass().getDeclaredField("mIsLongPress").setBoolean(resources, true);
-								Object[] mediaArgs = {KeyEvent.KEYCODE_MEDIA_NEXT};
-								sendMediaButtonEvent.invoke(resources,mediaArgs);
-								//Changes song.
+								long eventtime = SystemClock.uptimeMillis();
+								Intent keyIntent = new Intent(Intent.ACTION_MEDIA_BUTTON, null);
+								KeyEvent keyEvent = new KeyEvent(eventtime, eventtime, KeyEvent.ACTION_DOWN, theKeyCode, 0);
+								keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+								mContext.sendOrderedBroadcast(keyIntent, null);
+								keyEvent = KeyEvent.changeAction(keyEvent, KeyEvent.ACTION_UP);
+								keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+								mContext.sendOrderedBroadcast(keyIntent, null);
 							}
 							volumePresesSinceFirst = 0;
 						}
@@ -101,27 +119,40 @@ public class Main {
 				Runnable mVolumeDownLongPress = new Runnable() {
 					@Override
 					public void run() {
-						try
-						{	
+						try 
+						{
+							Integer theKeyCode = null;
+							boolean shouldDoAction = true;
 							if(volumePresesSinceFirst > 1)
 							{
-								int theKeyCode = isPaused ? KeyEvent.KEYCODE_MEDIA_PLAY :
+								if(doubletap)
+								{
+									theKeyCode = isPaused ? KeyEvent.KEYCODE_MEDIA_PLAY :
 															KeyEvent.KEYCODE_MEDIA_PAUSE;
 								
-								isPaused = !isPaused;
-								resources.getClass().getDeclaredField("mIsLongPress").setBoolean(resources, true);
-								Object[] mediaArgs = {theKeyCode};
-								sendMediaButtonEvent.invoke(resources,mediaArgs);
+									isPaused = !isPaused;
+								}
+								else
+								{
+									shouldDoAction = false;
+								}
+							}
+							else if(stillPressing && volumePresesSinceFirst <= 1)
+							{
+								theKeyCode = KeyEvent.KEYCODE_MEDIA_PREVIOUS;
+							}
+							if(!(theKeyCode == null) && shouldDoAction)
+							{
 								Object[] volumeArgs = {AudioManager.STREAM_MUSIC,KeyEvent.KEYCODE_VOLUME_UP};
 								handleVolumeKey.invoke(resources,volumeArgs);
-							}
-							if(stillPressing && volumePresesSinceFirst <= 1)
-							{
-								Object[] mediaArgs = {KeyEvent.KEYCODE_MEDIA_PREVIOUS};
-								sendMediaButtonEvent.invoke(resources,mediaArgs);
-								resources.getClass().getDeclaredField("mIsLongPress").setBoolean(resources, true);
-								Object[] volumeArgs = {AudioManager.STREAM_MUSIC,KeyEvent.KEYCODE_VOLUME_UP};
-								handleVolumeKey.invoke(resources,volumeArgs);								
+								long eventtime = SystemClock.uptimeMillis();
+								Intent keyIntent = new Intent(Intent.ACTION_MEDIA_BUTTON, null);
+								KeyEvent keyEvent = new KeyEvent(eventtime, eventtime, KeyEvent.ACTION_DOWN, theKeyCode, 0);
+								keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+								mContext.sendOrderedBroadcast(keyIntent, null);
+								keyEvent = KeyEvent.changeAction(keyEvent, KeyEvent.ACTION_UP);
+								keyIntent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
+								mContext.sendOrderedBroadcast(keyIntent, null);
 							}
 							volumePresesSinceFirst = 0;
 						}
@@ -131,7 +162,8 @@ public class Main {
 						}
 					};
 				};
-
+				if(isMusicActive)
+					isPaused = false;
 				if((keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || 
 						keyCode == KeyEvent.KEYCODE_VOLUME_UP) && 
 						/*isMusicActive &&*/
