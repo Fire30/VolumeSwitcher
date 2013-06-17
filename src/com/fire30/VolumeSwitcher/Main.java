@@ -17,6 +17,7 @@ import com.saurik.substrate.MS;
 public class Main {
 	public static boolean stillPressing;
 	public static int volumePresesSinceFirst;
+	public static boolean isPaused = true;//Device starts off as paused...eg not playing music
 	static void initialize() {
 		MS.hookClassLoad("com.android.internal.policy.impl.PhoneWindowManager", new MS.ClassLoadHook() {
 			@Override
@@ -65,7 +66,19 @@ public class Main {
 					public void run() {
 						try 
 						{
-							if(stillPressing && volumePresesSinceFirst <= 1)
+							if(volumePresesSinceFirst > 1)
+							{
+								Object[] volumeArgs = {AudioManager.STREAM_MUSIC,KeyEvent.KEYCODE_VOLUME_DOWN};
+								handleVolumeKey.invoke(resources,volumeArgs);
+								int theKeyCode = isPaused ? KeyEvent.KEYCODE_MEDIA_PLAY :
+															KeyEvent.KEYCODE_MEDIA_PAUSE;
+								
+								isPaused = !isPaused;
+								resources.getClass().getDeclaredField("mIsLongPress").setBoolean(resources, true);
+								Object[] mediaArgs = {theKeyCode};
+								sendMediaButtonEvent.invoke(resources,mediaArgs);
+							}
+							else if(stillPressing && volumePresesSinceFirst <= 1)
 							{
 								//need to be pressing and the counter ensures that it is a hold.
 								Object[] volumeArgs = {AudioManager.STREAM_MUSIC,KeyEvent.KEYCODE_VOLUME_DOWN};
@@ -90,6 +103,18 @@ public class Main {
 					public void run() {
 						try
 						{	
+							if(volumePresesSinceFirst > 1)
+							{
+								int theKeyCode = isPaused ? KeyEvent.KEYCODE_MEDIA_PLAY :
+															KeyEvent.KEYCODE_MEDIA_PAUSE;
+								
+								isPaused = !isPaused;
+								resources.getClass().getDeclaredField("mIsLongPress").setBoolean(resources, true);
+								Object[] mediaArgs = {theKeyCode};
+								sendMediaButtonEvent.invoke(resources,mediaArgs);
+								Object[] volumeArgs = {AudioManager.STREAM_MUSIC,KeyEvent.KEYCODE_VOLUME_UP};
+								handleVolumeKey.invoke(resources,volumeArgs);
+							}
 							if(stillPressing && volumePresesSinceFirst <= 1)
 							{
 								Object[] mediaArgs = {KeyEvent.KEYCODE_MEDIA_PREVIOUS};
@@ -109,7 +134,7 @@ public class Main {
 
 				if((keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || 
 						keyCode == KeyEvent.KEYCODE_VOLUME_UP) && 
-						isMusicActive &&
+						/*isMusicActive &&*/
 						((invoke(resources,args)) & ACTION_PASS_TO_USER) == 0)
 					//If Music is on, Volume Key is pressed
 					//and the original action does not pass to user
